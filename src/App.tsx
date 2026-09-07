@@ -29,7 +29,12 @@ interface StampConfig {
   centerText: string;
   dateText: string;
   fontFamily: string;
-  fontWeight: string;
+  topFontSize: number;
+  topFontWeight: string;
+  bottomFontSize: number;
+  bottomFontWeight: string;
+  centerFontSize: number;
+  centerFontWeight: string;
   ringThickness: number;
   radius: number; // For circular: radius, For rectangular: width/2
   padding: number;
@@ -59,7 +64,12 @@ const DEFAULT_CONFIG: StampConfig = {
   centerText: "SAMPLE",
   dateText: new Date().toISOString().split('T')[0],
   fontFamily: "serif",
-  fontWeight: "bold",
+  topFontSize: 18,
+  topFontWeight: "700",
+  bottomFontSize: 18,
+  bottomFontWeight: "700",
+  centerFontSize: 35,
+  centerFontWeight: "700",
   ringThickness: 4,
   radius: 140,
   padding: 20,
@@ -79,6 +89,16 @@ const FONT_OPTIONS = [
   { label: 'Monospace (Typewriter)', value: 'monospace' },
   { label: 'Georgia', value: 'Georgia, serif' },
   { label: 'Arial Black', value: '"Arial Black", sans-serif' },
+];
+
+const FONT_WEIGHT_OPTIONS = [
+  { label: 'Light', value: '300' },
+  { label: 'Regular', value: '400' },
+  { label: 'Medium', value: '500' },
+  { label: 'Semibold', value: '600' },
+  { label: 'Bold', value: '700' },
+  { label: 'Extrabold', value: '800' },
+  { label: 'Black', value: '900' },
 ];
 
 const PRESETS: Record<string, Partial<StampConfig>> = {
@@ -177,11 +197,15 @@ export default function App() {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    const { 
-      shape, topText, bottomText, centerText, dateText, 
-      fontFamily, fontWeight, ringThickness, radius, 
-      padding, inkColor, distress, noise, inkBleed, 
-      rotation, opacity, addSmudge, misalignment 
+    const {
+      shape, topText, bottomText, centerText, dateText,
+      fontFamily,
+      topFontSize, topFontWeight,
+      bottomFontSize, bottomFontWeight,
+      centerFontSize, centerFontWeight,
+      ringThickness, radius,
+      padding, inkColor, distress, noise, inkBleed,
+      rotation, opacity, addSmudge, misalignment
     } = config;
 
     // Clear canvas
@@ -228,27 +252,28 @@ export default function App() {
 
       // 3. Draw Curved Text
       const fontSize = Math.max(12, radius / 8);
-      offCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
-      
+
       // Top Arc
+      offCtx.font = `${topFontWeight} ${topFontSize}px ${fontFamily}`;
       drawCurvedText(
-        offCtx, 
-        topText.toUpperCase(), 
-        centerX, 
-        centerY, 
-        radius - 8, 
-        -Math.PI * 0.4, 
+        offCtx,
+        topText.toUpperCase(),
+        centerX,
+        centerY,
+        radius - 8,
+        -Math.PI * 0.4,
         false
       );
 
       // Bottom Arc
+      offCtx.font = `${bottomFontWeight} ${bottomFontSize}px ${fontFamily}`;
       drawCurvedText(
-        offCtx, 
-        bottomText.toUpperCase(), 
-        centerX, 
-        centerY, 
-        radius - 8, 
-        Math.PI * 0.4, 
+        offCtx,
+        bottomText.toUpperCase(),
+        centerX,
+        centerY,
+        radius - 8,
+        Math.PI * 0.4,
         true
       );
 
@@ -265,8 +290,7 @@ export default function App() {
       drawSeparator(Math.PI);
 
       // 5. Draw Center Text
-      const centerFontSize = Math.max(20, radius / 4);
-      offCtx.font = `${fontWeight} ${centerFontSize}px ${fontFamily}`;
+      offCtx.font = `${centerFontWeight} ${centerFontSize}px ${fontFamily}`;
       offCtx.fillText(centerText.toUpperCase(), centerX, centerY - 10);
 
       // 6. Draw Date Text
@@ -298,17 +322,17 @@ export default function App() {
       offCtx.strokeRect(x + 10, y + 10, width - 20, height - 20);
 
       const fontSize = Math.max(12, radius / 10);
-      offCtx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
 
       // Top Text
+      offCtx.font = `${topFontWeight} ${topFontSize}px ${fontFamily}`;
       offCtx.fillText(topText.toUpperCase(), centerX, y + 25);
-      
+
       // Bottom Text
+      offCtx.font = `${bottomFontWeight} ${bottomFontSize}px ${fontFamily}`;
       offCtx.fillText(bottomText.toUpperCase(), centerX, y + height - 25);
 
       // Center Text
-      const centerFontSize = Math.max(24, radius / 3.5);
-      offCtx.font = `${fontWeight} ${centerFontSize}px ${fontFamily}`;
+      offCtx.font = `${centerFontWeight} ${centerFontSize}px ${fontFamily}`;
       offCtx.fillText(centerText.toUpperCase(), centerX, centerY - 5);
 
       // Date Text
@@ -375,6 +399,32 @@ export default function App() {
   const handleSliderChange = (name: string, value: number) => {
     setConfig(prev => ({ ...prev, [name]: value }));
   };
+
+  // Font-size number inputs need to tolerate a momentarily empty field while
+  // the user is typing/clearing, without forcing the underlying config to 0.
+  const [fontSizeDrafts, setFontSizeDrafts] = useState<Record<string, string>>({});
+
+  const handleFontSizeChange = (name: 'topFontSize' | 'bottomFontSize' | 'centerFontSize', raw: string) => {
+    setFontSizeDrafts(prev => ({ ...prev, [name]: raw }));
+    if (raw.trim() === '') return; // leave config untouched until the user commits a value
+    const num = parseInt(raw, 10);
+    if (!isNaN(num)) {
+      setConfig(prev => ({ ...prev, [name]: num }));
+    }
+  };
+
+  const handleFontSizeBlur = (name: 'topFontSize' | 'bottomFontSize' | 'centerFontSize') => {
+    // On blur, drop the draft so the field falls back to displaying the committed config value
+    // (e.g. if it was left empty or invalid).
+    setFontSizeDrafts(prev => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+
+  const getFontSizeInputValue = (name: 'topFontSize' | 'bottomFontSize' | 'centerFontSize') =>
+    fontSizeDrafts[name] !== undefined ? fontSizeDrafts[name] : String(config[name]);
 
   const applyPreset = (presetName: string) => {
     setConfig(prev => ({ ...prev, ...PRESETS[presetName] }));
@@ -529,33 +579,96 @@ export default function App() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-stone-500 uppercase">Top Text</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="topText"
                   value={config.topText}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-900 focus:border-transparent transition-all outline-none"
                 />
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <input
+                    type="number"
+                    min={8}
+                    max={80}
+                    value={getFontSizeInputValue('topFontSize')}
+                    onChange={(e) => handleFontSizeChange('topFontSize', e.target.value)}
+                    onBlur={() => handleFontSizeBlur('topFontSize')}
+                    title="Font Size"
+                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-stone-900"
+                  />
+                  <select
+                    name="topFontWeight"
+                    value={config.topFontWeight}
+                    onChange={handleInputChange}
+                    title="Font Weight"
+                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs outline-none"
+                  >
+                    {FONT_WEIGHT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-stone-500 uppercase">Bottom Text</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="bottomText"
                   value={config.bottomText}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-900 focus:border-transparent transition-all outline-none"
                 />
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <input
+                    type="number"
+                    min={8}
+                    max={80}
+                    value={getFontSizeInputValue('bottomFontSize')}
+                    onChange={(e) => handleFontSizeChange('bottomFontSize', e.target.value)}
+                    onBlur={() => handleFontSizeBlur('bottomFontSize')}
+                    title="Font Size"
+                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-stone-900"
+                  />
+                  <select
+                    name="bottomFontWeight"
+                    value={config.bottomFontWeight}
+                    onChange={handleInputChange}
+                    title="Font Weight"
+                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs outline-none"
+                  >
+                    {FONT_WEIGHT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-stone-500 uppercase">Center Text (Mandatory)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="centerText"
                   value={config.centerText}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-stone-900 focus:border-transparent transition-all outline-none"
                 />
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <input
+                    type="number"
+                    min={8}
+                    max={120}
+                    value={getFontSizeInputValue('centerFontSize')}
+                    onChange={(e) => handleFontSizeChange('centerFontSize', e.target.value)}
+                    onBlur={() => handleFontSizeBlur('centerFontSize')}
+                    title="Font Size"
+                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-stone-900"
+                  />
+                  <select
+                    name="centerFontWeight"
+                    value={config.centerFontWeight}
+                    onChange={handleInputChange}
+                    title="Font Weight"
+                    className="w-full px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs outline-none"
+                  >
+                    {FONT_WEIGHT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-stone-500 uppercase">Date</label>
